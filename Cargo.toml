@@ -1,0 +1,56 @@
+[package]
+name = "media-gateway"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "media-gateway"
+path = "src/main.rs"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["multipart", "macros"] }
+tokio = { version = "1.0", features = ["full"] }
+tower = { version = "0.4" }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json"] }
+
+# Redis
+redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
+
+# AWS S3 (Hetzner Object Storage)
+aws-config = { version = "1.1", features = ["behavior-version-latest"] }
+aws-sdk-s3 = "1.12"
+aws-credential-types = "1.1"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Utils
+uuid = { version = "1.6", features = ["v4", "v7", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+dotenvy = "0.15"
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Multipart
+multer = "3.0"
+
+# HTTP
+http = "1.0"
+bytes = "1.5"
+
+# Auth
+jsonwebtoken = "9"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+hyper = "1.0"

@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  media-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3003
+      - RUST_LOG=info
+      - DATABASE_URL=postgres://clubify:password@host.docker.internal:5432/media_gateway
+      - REDIS_URL=redis://host.docker.internal:6379
+      - JWT_SECRET=***
+      - S3_ENDPOINT=***
+      - S3_BUCKET=***
+      - S3_REGION=***
+      - S3_ACCESS_KEY=***
+      - S3_SECRET_KEY=***
+      - BUNNY_CDN_URL=***
+      - TRAFFIC_MAX_DAILY_BYTES=107374182400
+      - TRAFFIC_MAX_MONTHLY_BYTES=2199023255552
+      - TRAFFIC_MAX_DAILY_DOWNLOADS=50000
+      - TRAFFIC_MAX_USER_DAILY_BYTES=10737418240
+      - TRAFFIC_MAX_USER_DAILY_DOWNLOADS=500
+      - TRAFFIC_MAX_REQUESTS_PER_HOUR=5000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

@@ -43,8 +43,11 @@ impl Config {
     pub fn from_env() -> Result<Self> {
         Ok(Self {
             host: std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+            // 3004, not 3003: Docker already maps the API to 3003 (backend
+            // Dockerfile). The old 3003 default made both services collide on
+            // a single host. Set PORT explicitly anyway.
             port: std::env::var("PORT")
-                .unwrap_or_else(|_| "3003".to_string())
+                .unwrap_or_else(|_| "3004".to_string())
                 .parse()
                 .context("Invalid PORT")?,
             database_url: std::env::var("DATABASE_URL")

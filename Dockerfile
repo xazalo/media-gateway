@@ -20,9 +20,9 @@ COPY --from=builder /app/sql /app/sql
 WORKDIR /app
 
 ENV HOST=0.0.0.0
-ENV PORT=3003
+ENV PORT=3004
 ENV RUST_LOG=info
 
-EXPOSE 3003
+EXPOSE 3004
 
 CMD ["media-gateway"]

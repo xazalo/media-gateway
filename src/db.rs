@@ -20,7 +20,12 @@ impl Database {
 
     pub async fn run_migrations(&self) -> Result<()> {
         let migration_sql = include_str!("../sql/001_traffic_tracking.sql");
-        sqlx::query(migration_sql).execute(&self.pool).await?;
+        // `raw_sql` runs the file over the *simple* protocol, which accepts the
+        // multiple statements in 001_traffic_tracking.sql (`sqlx::query` would
+        // fail with "cannot insert multiple commands into a prepared
+        // statement"). The SQL is idempotent (IF NOT EXISTS / ON CONFLICT), so
+        // re-running it on every boot is safe.
+        sqlx::raw_sql(migration_sql).execute(&self.pool).await?;
         Ok(())
     }
 

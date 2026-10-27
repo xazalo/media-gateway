@@ -1,15 +1,15 @@
-version: '3.8'
-
 services:
   media-gateway:
     build:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3003:3003"
+      # 3004, no 3003: el 3003 ya lo usa la API (backend/Dockerfile). En el
+      # deploy separado ver ../microservices/media/docker-compose.yml.
+      - "3004:3004"
     environment:
       - HOST=0.0.0.0
-      - PORT=3003
+      - PORT=3004
       - RUST_LOG=info
       - DATABASE_URL=postgres://clubify:password@host.docker.internal:5432/media_gateway
       - REDIS_URL=redis://host.docker.internal:6379
@@ -30,7 +30,7 @@ services:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/3004'"]
       interval: 30s
       timeout: 10s
       retries: 3

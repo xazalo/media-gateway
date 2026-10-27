@@ -1,0 +1,75 @@
+# =============================================================================
+# Clubify · MEDIA GATEWAY — deploy microservicio (Dokploy)
+#
+# Proyecto Dokploy: `clubify-media` → repo media-gateway, Compose Path:
+# docker-compose.deploy.yml. Opcional publicarlo: con Bunny CDN bien
+# configurado el navegador descarga del CDN y el upload es Nitro→gateway por
+# la red interna, así que NO necesita dominio (si quieres métricas:
+# media.tudominio.eu → puerto interno 3004).
+# DNS interno: `media-gateway:3004`.
+#
+# ⚠ PORT=3004 SIEMPRE explícito: el 3003 lo usa la API en Docker. La imagen
+#   ya trae 3004 de default (se corrigió), pero el compose nunca debe depender
+#   del default.
+# ⚠ BUNNY_CDN_URL debe apuntar a un pull zone REAL: la gateway construye con
+#   él la URL que devuelve al cliente; con el default roto los uploads
+#   "funcionan" y las imágenes salen rotas en el navegador.
+#
+# Migraciones: aplica sql/001_traffic_tracking.sql al arrancar (raw_sql en
+# src/db.rs — antes el servicio no arrancaba). DB dedicada `postgres-media`
+# (base media_gateway) y Redis compartido, en `clubify-internal` → ver
+# ../microservices/README.md del monorepo.
+#
+# Imagen: ghcr.io/xazalo/clubify-media-gateway (workflow docker.yml añadido).
+# =============================================================================
+
+name: clubify-media
+
+services:
+  media-gateway:
+    image: ghcr.io/xazalo/clubify-media-gateway:latest
+    build: .
+    restart: unless-stopped
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "3004"
+      RUST_LOG: ${RUST_LOG:-info}
+      # --- Datos (red clubify-internal): base DEDICADA + Redis compartido ---
+      DATABASE_URL: postgres://clubify:${POSTGRES_PASSWORD:?Pon POSTGRES_PASSWORD en .env}@postgres-media:5432/media_gateway
+      REDIS_URL: redis://redis:6379
+      # ⚠ Idéntico al JWT_SECRET del backend: si difiere, todos los uploads
+      #   fallan con 401 invalid authentication token.
+      JWT_SECRET: ${JWT_SECRET:?Pon JWT_SECRET en .env}
+
+      # --- Hetzner Object Storage (S3) ---
+      S3_ENDPOINT: ${S3_ENDPOINT:?Pon S3_ENDPOINT (https://fsn1.your-objectstorage.com) en .env}
+      S3_BUCKET: ${S3_BUCKET:?Pon S3_BUCKET en .env}
+      S3_REGION: ${S3_REGION:?Pon S3_REGION (fsn1) en .env}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Pon S3_ACCESS_KEY en .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Pon S3_SECRET_KEY en .env}
+
+      # --- Bunny CDN (URL pública que se devuelve en cada upload) ---
+      BUNNY_CDN_URL: ${BUNNY_CDN_URL:?Pon BUNNY_CDN_URL (https://tudominio.b-cdn.net) en .env}
+
+      # --- Límites de tráfico (100 GB/día · 2 TB/mes · 10 GB/día usuario) ---
+      TRAFFIC_MAX_DAILY_BYTES: ${TRAFFIC_MAX_DAILY_BYTES:-107374182400}
+      TRAFFIC_MAX_MONTHLY_BYTES: ${TRAFFIC_MAX_MONTHLY_BYTES:-2199023255552}
+      TRAFFIC_MAX_DAILY_DOWNLOADS: ${TRAFFIC_MAX_DAILY_DOWNLOADS:-50000}
+      TRAFFIC_MAX_USER_DAILY_BYTES: ${TRAFFIC_MAX_USER_DAILY_BYTES:-10737418240}
+      TRAFFIC_MAX_USER_DAILY_DOWNLOADS: ${TRAFFIC_MAX_USER_DAILY_DOWNLOADS:-500}
+      TRAFFIC_MAX_REQUESTS_PER_HOUR: ${TRAFFIC_MAX_REQUESTS_PER_HOUR:-5000}
+
+      # --- Video processing (pendiente de implementar; off) ---
+      VIDEO_PROCESSING_ENABLED: ${VIDEO_PROCESSING_ENABLED:-false}
+    ports:
+      # Solo loopback; el tráfico de usuarios va por Bunny CDN, no por aquí.
+      - "127.0.0.1:${MEDIA_PORT:-3004}:3004"
+    networks:
+      - clubify-internal
+      - dokploy-network
+
+networks:
+  clubify-internal:
+    external: true
+  dokploy-network:
+    external: true

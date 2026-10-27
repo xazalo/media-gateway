@@ -5,7 +5,9 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo 'fn main() {}' > src/main.rs && cargo build --release && rm -rf src
+# Calienta el registro de deps: el crate declara [lib] + [[bin]], hay que
+# crear ambos stubs o cargo falla al resolver el target 'media_gateway'.
+RUN mkdir src && echo 'fn main() {}' > src/main.rs && echo '' > src/lib.rs && cargo build --release && rm -rf src
 
 COPY sql/ sql/
 COPY src/ src/

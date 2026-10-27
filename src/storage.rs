@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use aws_config::Region;
 use aws_credential_types::Credentials;
-use aws_sdk_s3::config::Builder as S3ConfigBuilder;
+use aws_sdk_s3::config::{BehaviorVersion, Builder as S3ConfigBuilder};
 use aws_sdk_s3::primitives::ByteStream;
 use aws_sdk_s3::Client;
 use bytes::Bytes;
@@ -24,6 +24,10 @@ impl S3Client {
     ) -> Result<Self> {
         let creds = Credentials::new(access_key, secret_key, None, None, "hetzner");
         let config = S3ConfigBuilder::new()
+            // aws-config's feature 'behavior-version-latest' doesn't apply
+            // here: the client is built directly from S3ConfigBuilder, and
+            // without a behavior version the SDK panics on first use.
+            .behavior_version(BehaviorVersion::latest())
             .region(Region::new(region.to_string()))
             .endpoint_url(endpoint)
             .credentials_provider(creds)

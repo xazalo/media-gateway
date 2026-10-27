@@ -65,7 +65,10 @@ async fn main() -> Result<()> {
         ));
 
     let download_router = Router::new()
-        .route("/media/{key}", get(routes::download::handle_download))
+        // axum 0.7: el catch-all es '*key' (en 0.8 sería '{*key}'). El key
+        // generado lleva barras (uploads/{ts}/{uuid}-{file}); con ':key' o el
+        // literal '{key}' de antes, esta ruta jamás casaba nada => 404.
+        .route("/media/*key", get(routes::download::handle_download))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::optional_auth,
@@ -76,7 +79,10 @@ async fn main() -> Result<()> {
         .merge(upload_router)
         .merge(download_router)
         .route(
-            "/media/{key}/info",
+            // Idem axum 0.7. El wildcard debe cerrar el path, así que el
+            // sufijo '/info' (inalcanzable con keys de varias barras) pasa a
+            // prefijo propio.
+            "/media-info/*key",
             get(routes::download::handle_media_info),
         )
         .route(

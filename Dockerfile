@@ -11,7 +11,10 @@ RUN mkdir src && echo 'fn main() {}' > src/main.rs && echo '' > src/lib.rs && ca
 
 COPY sql/ sql/
 COPY src/ src/
-RUN touch src/main.rs && cargo build --release
+# touch de TODOS los .rs: el paso de calentamiento compiló un lib stub vacío;
+# si solo se toca main.rs, cargo reutiliza ese lib viejo (los ficheros reales
+# traen mtimes anteriores al build de la imagen) y el bin no resuelve los mods.
+RUN find src -name '*.rs' -exec touch {} + && cargo build --release
 
 FROM debian:bookworm-slim
 

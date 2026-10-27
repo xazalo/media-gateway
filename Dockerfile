@@ -1,4 +1,5 @@
-FROM rust:1.84-slim-bookworm AS builder
+# rust:1 (actual) — 1.84-slim no compila las deps que exigen edition2024.
+FROM rust:1-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 

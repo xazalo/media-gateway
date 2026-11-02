@@ -1,5 +1,7 @@
-# rust:1 (actual) — 1.84-slim no compila las deps que exigen edition2024.
-FROM rust:1-slim-bookworm AS builder
+# Pinned exacto (1.99.1 compila edition 2024): subir de versión Rust es un
+# cambio deliberado, no un efecto de `docker build`. Base bookworm = misma
+# glibc que el runtime (debian:bookworm-slim).
+FROM rust:1.99.1-slim-bookworm AS builder
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 

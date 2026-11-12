@@ -1,0 +1,13 @@
+[advisories]
+ignore = [
+    # rsa viene de sqlx-mysql, que no usamos (default-features = false, solo postgres)
+    "RUSTSEC-2023-0071",
+    # libsqlite3-sys viene de sqlx-sqlite, que no usamos (default-features = false, solo postgres)
+    "RUSTSEC-2026-0459",
+    #
+    # NOTA: Las siguientes vulnerabilidades son REALES y activas, pero dependen del AWS SDK
+    # que internamente usa hyper 0.14 / rustls 0.21. No podemos resolverlas hasta que AWS
+    # actualice aws-smithy-http-client. Las dejamos reportadas para visibilidad:
+    #   RUSTSEC-2026-0258 (h2), RUSTSEC-2026-0346, RUSTSEC-2026-0349 (rustls),
+    #   RUSTSEC-2026-0098, 0099, 0382, 0104 (rustls-webpki)
+]

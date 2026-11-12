@@ -32,17 +32,21 @@ media-gateway/
 │       ├── upload.rs        # POST /media/upload (auth required)
 │       ├── download.rs      # GET /media/{key} (optional auth)
 │       └── admin.rs         # GET /admin/traffic/stats
+├── scripts/
+│   └── verify-deploy.sh     # Verificación post-deploy
 ├── sql/
 │   └── 001_traffic_tracking.sql  # Migraciones
 ├── tests/
 │   └── config_test.rs       # Tests de configuración
 ├── Cargo.toml
-├── Dockerfile
-├── docker-compose.yml
-├── .env.example
+├── Dockerfile               # Multi-stage build optimizado
+├── .dockerignore            # Exclusiones para docker build
+├── .env.example             # Template de variables de entorno
+├── .env.dokploy.example     # Variables específicas para Dokploy
 ├── init-db.sh               # Inicializa DB separada
 ├── migrate.sh               # Migra archivos existentes
-└── README.md
+├── README.md                # Esta documentación
+└── DEPLOYMENT.md            # Guía de deployment con Dokploy
 ```
 
 ## Configuración
@@ -117,7 +121,22 @@ cp .env.example .env
 cargo run
 ```
 
-### Producción (Docker)
+### Producción (Dokploy con Dockerfile)
+
+**Método recomendado**: Desplegar directamente con Dokploy usando el Dockerfile para aprovechar el escalado horizontal nativo.
+
+Ver [DEPLOYMENT.md](DEPLOYMENT.md) para instrucciones completas de deployment con Dokploy.
+
+**Resumen rápido**:
+
+1. Crear aplicación en Dokploy → "Application" → "Dockerfile"
+2. Configurar variables de entorno (ver sección "Variables de Entorno" arriba)
+3. Conectar red `clubify-internal`
+4. Habilitar replicas en Settings → Replicas
+
+### Producción (Docker Compose - Legacy)
+
+Si prefieres usar docker-compose (no recomendado para escalado):
 
 ```bash
 # Construir imagen
@@ -126,6 +145,8 @@ docker build -t media-gateway .
 # Ejecutar
 docker compose up -d
 ```
+
+Nota: docker-compose no escala horizontalmente de forma nativa. Para escalado, usa Dokploy con Dockerfile.
 
 ## API
 

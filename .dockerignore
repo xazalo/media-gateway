@@ -1,0 +1,53 @@
+# Dependencies
+target/
+**/*.rs.bk
+*.pdb
+
+# Build artifacts
+Cargo.lock.bak
+*.log
+
+# Git
+.git
+.gitignore
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+README.md
+*.md
+!sql/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Tests
+tests/
+*.test.rs
+
+# Docker
+docker-compose*.yml
+Dockerfile
+
+# Scripts de migración (no necesarios en runtime)
+migrate.sh
+init-db.sh
+
+# Temporal
+tmp/
+temp/

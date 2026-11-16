@@ -41,75 +41,152 @@ pub struct VideoConfig {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
+        let mut errors = Vec::new();
+
+        let host = match std::env::var("HOST") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                errors.push("HOST is missing or empty");
+                String::new()
+            }
+        };
+
+        let port = match std::env::var("PORT") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid PORT")?,
+            _ => {
+                errors.push("PORT is missing or empty");
+                0
+            }
+        };
+
+        let database_url = std::env::var("DATABASE_URL")
+            .context("DATABASE_URL is required")?;
+        let redis_url = std::env::var("REDIS_URL")
+            .context("REDIS_URL is required")?;
+        let jwt_secret = std::env::var("JWT_SECRET")
+            .context("JWT_SECRET is required (must match backend)")?;
+
+        let s3 = S3Config {
+            endpoint: std::env::var("S3_ENDPOINT")
+                .context("S3_ENDPOINT is required")?,
+            bucket: std::env::var("S3_BUCKET")
+                .context("S3_BUCKET is required")?,
+            region: std::env::var("S3_REGION")
+                .context("S3_REGION is required")?,
+            access_key: std::env::var("S3_ACCESS_KEY")
+                .context("S3_ACCESS_KEY is required")?,
+            secret_key: std::env::var("S3_SECRET_KEY")
+                .context("S3_SECRET_KEY is required")?,
+        };
+
+        let bunny_cdn_url = match std::env::var("BUNNY_CDN_URL") {
+            Ok(v) if !v.trim().is_empty() => v,
+            _ => {
+                errors.push("BUNNY_CDN_URL is missing or empty");
+                String::new()
+            }
+        };
+
+        let max_daily_bytes = match std::env::var("TRAFFIC_MAX_DAILY_BYTES") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_DAILY_BYTES")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_DAILY_BYTES is missing or empty");
+                0
+            }
+        };
+
+        let max_monthly_bytes = match std::env::var("TRAFFIC_MAX_MONTHLY_BYTES") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_MONTHLY_BYTES")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_MONTHLY_BYTES is missing or empty");
+                0
+            }
+        };
+
+        let max_daily_downloads = match std::env::var("TRAFFIC_MAX_DAILY_DOWNLOADS") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_DAILY_DOWNLOADS")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_DAILY_DOWNLOADS is missing or empty");
+                0
+            }
+        };
+
+        let max_user_daily_bytes = match std::env::var("TRAFFIC_MAX_USER_DAILY_BYTES") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_USER_DAILY_BYTES")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_USER_DAILY_BYTES is missing or empty");
+                0
+            }
+        };
+
+        let max_user_daily_downloads = match std::env::var("TRAFFIC_MAX_USER_DAILY_DOWNLOADS") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_USER_DAILY_DOWNLOADS")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_USER_DAILY_DOWNLOADS is missing or empty");
+                0
+            }
+        };
+
+        let max_requests_per_hour = match std::env::var("TRAFFIC_MAX_REQUESTS_PER_HOUR") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid TRAFFIC_MAX_REQUESTS_PER_HOUR")?,
+            _ => {
+                errors.push("TRAFFIC_MAX_REQUESTS_PER_HOUR is missing or empty");
+                0
+            }
+        };
+
+        let video_enabled = match std::env::var("VIDEO_PROCESSING_ENABLED") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid VIDEO_PROCESSING_ENABLED")?,
+            _ => {
+                errors.push("VIDEO_PROCESSING_ENABLED is missing or empty");
+                false
+            }
+        };
+
+        let video_max_upload_size = match std::env::var("VIDEO_MAX_UPLOAD_SIZE") {
+            Ok(v) if !v.trim().is_empty() => v.parse().context("Invalid VIDEO_MAX_UPLOAD_SIZE")?,
+            _ => {
+                errors.push("VIDEO_MAX_UPLOAD_SIZE is missing or empty");
+                0
+            }
+        };
+
+        let video_qualities = match std::env::var("VIDEO_QUALITIES") {
+            Ok(v) if !v.trim().is_empty() => v.split(',').map(|s| s.trim().to_string()).collect(),
+            _ => {
+                errors.push("VIDEO_QUALITIES is missing or empty");
+                Vec::new()
+            }
+        };
+
+        if !errors.is_empty() {
+            eprintln!("\n❌ Configuration validation failed:");
+            for err in &errors {
+                eprintln!("  • {err}");
+            }
+            anyhow::bail!("Configuration validation failed. See errors above.");
+        }
+
         Ok(Self {
-            host: std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
-            // 3004, not 3003: Docker already maps the API to 3003 (backend
-            // Dockerfile). The old 3003 default made both services collide on
-            // a single host. Set PORT explicitly anyway.
-            port: std::env::var("PORT")
-                .unwrap_or_else(|_| "3004".to_string())
-                .parse()
-                .context("Invalid PORT")?,
-            database_url: std::env::var("DATABASE_URL")
-                .context("DATABASE_URL is required")?,
-            redis_url: std::env::var("REDIS_URL")
-                .context("REDIS_URL is required")?,
-            jwt_secret: std::env::var("JWT_SECRET")
-                .context("JWT_SECRET is required (must match backend)")?,
-            s3: S3Config {
-                endpoint: std::env::var("S3_ENDPOINT")
-                    .context("S3_ENDPOINT is required")?,
-                bucket: std::env::var("S3_BUCKET")
-                    .context("S3_BUCKET is required")?,
-                region: std::env::var("S3_REGION")
-                    .context("S3_REGION is required")?,
-                access_key: std::env::var("S3_ACCESS_KEY")
-                    .context("S3_ACCESS_KEY is required")?,
-                secret_key: std::env::var("S3_SECRET_KEY")
-                    .context("S3_SECRET_KEY is required")?,
-            },
-            bunny_cdn_url: std::env::var("BUNNY_CDN_URL")
-                .unwrap_or_else(|_| "https://clubify-media.b-cdn.net".to_string()),
+            host,
+            port,
+            database_url,
+            redis_url,
+            jwt_secret,
+            s3,
+            bunny_cdn_url,
             traffic: TrafficLimits {
-                max_daily_bytes: std::env::var("TRAFFIC_MAX_DAILY_BYTES")
-                    .unwrap_or_else(|_| "107374182400".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_DAILY_BYTES")?,
-                max_monthly_bytes: std::env::var("TRAFFIC_MAX_MONTHLY_BYTES")
-                    .unwrap_or_else(|_| "2199023255552".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_MONTHLY_BYTES")?,
-                max_daily_downloads: std::env::var("TRAFFIC_MAX_DAILY_DOWNLOADS")
-                    .unwrap_or_else(|_| "50000".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_DAILY_DOWNLOADS")?,
-                max_user_daily_bytes: std::env::var("TRAFFIC_MAX_USER_DAILY_BYTES")
-                    .unwrap_or_else(|_| "10737418240".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_USER_DAILY_BYTES")?,
-                max_user_daily_downloads: std::env::var("TRAFFIC_MAX_USER_DAILY_DOWNLOADS")
-                    .unwrap_or_else(|_| "500".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_USER_DAILY_DOWNLOADS")?,
-                max_requests_per_hour: std::env::var("TRAFFIC_MAX_REQUESTS_PER_HOUR")
-                    .unwrap_or_else(|_| "5000".to_string())
-                    .parse()
-                    .context("Invalid TRAFFIC_MAX_REQUESTS_PER_HOUR")?,
+                max_daily_bytes,
+                max_monthly_bytes,
+                max_daily_downloads,
+                max_user_daily_bytes,
+                max_user_daily_downloads,
+                max_requests_per_hour,
             },
             video: VideoConfig {
-                enabled: std::env::var("VIDEO_PROCESSING_ENABLED")
-                    .unwrap_or_else(|_| "false".to_string())
-                    .parse()
-                    .context("Invalid VIDEO_PROCESSING_ENABLED")?,
-                max_upload_size: std::env::var("VIDEO_MAX_UPLOAD_SIZE")
-                    .unwrap_or_else(|_| "524288000".to_string())
-                    .parse()
-                    .context("Invalid VIDEO_MAX_UPLOAD_SIZE")?,
-                qualities: std::env::var("VIDEO_QUALITIES")
-                    .unwrap_or_else(|_| "360p,720p,1080p".to_string())
-                    .split(',')
-                    .map(|s| s.trim().to_string())
-                    .collect(),
+                enabled: video_enabled,
+                max_upload_size: video_max_upload_size,
+                qualities: video_qualities,
             },
         })
     }

@@ -20,15 +20,18 @@
 # (base media_gateway) y Redis compartido, en `clubify-internal` → ver
 # ../microservices/README.md del monorepo.
 #
-# Imagen: ghcr.io/xazalo/clubify-media-gateway (workflow docker.yml añadido).
+# Imagen: se construye en local con el Dockerfile del repo (multi-stage,
+# rust:1.99.1-slim-bookworm → debian:bookworm-slim). Versiones fijadas en el
+# Dockerfile: subir base image es un cambio deliberado, no un side-effect del build.
 # =============================================================================
 
 name: clubify-media
 
 services:
   media-gateway:
-    image: ghcr.io/xazalo/clubify-media-gateway:latest
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       HOST: "0.0.0.0"

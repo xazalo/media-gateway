@@ -1,37 +1,76 @@
+# =============================================================================
+# Clubify · MEDIA-GATEWAY — deploy microservicio (Dokploy)
+#
+# Proyecto Dokploy: `clubify-media` → repo CHAT-CLUBIFY, Compose Path:
+# docker-compose.yml. Dominio: media.tudominio.eu → puerto interno 3004.
+#
+# ⚠ TODAS las variables son OBLIGATORIAS. No hay defaults.
+#   Si falta alguna, el servicio NO arrancará.
+# =============================================================================
+
+name: clubify-media
+
 services:
   media-gateway:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
-      # 3004, no 3003: el 3003 ya lo usa la API (backend/Dockerfile). En el
-      # deploy separado ver ../microservices/media/docker-compose.yml.
-      - "3004:3004"
+      # [SEGURIDAD] BIND_ADDRESS controla la exposición del puerto.
+      # Producción: 127.0.0.1 (solo accesible vía Traefik)
+      # Desarrollo: 0.0.0.0 (accesible desde la red)
+      - "${BIND_ADDRESS:?Pon BIND_ADDRESS en .env}:${PORT:?Pon PORT en .env}:${PORT:?Pon PORT en .env}"
     environment:
-      - HOST=0.0.0.0
-      - PORT=3004
-      - RUST_LOG=info
-      - DATABASE_URL=postgres://clubify:password@host.docker.internal:5432/media_gateway
-      - REDIS_URL=redis://host.docker.internal:6379
-      - JWT_SECRET=***
-      - S3_ENDPOINT=***
-      - S3_BUCKET=***
-      - S3_REGION=***
-      - S3_ACCESS_KEY=***
-      - S3_SECRET_KEY=***
-      - BUNNY_CDN_URL=***
-      - TRAFFIC_MAX_DAILY_BYTES=107374182400
-      - TRAFFIC_MAX_MONTHLY_BYTES=2199023255552
-      - TRAFFIC_MAX_DAILY_DOWNLOADS=50000
-      - TRAFFIC_MAX_USER_DAILY_BYTES=10737418240
-      - TRAFFIC_MAX_USER_DAILY_DOWNLOADS=500
-      - TRAFFIC_MAX_REQUESTS_PER_HOUR=5000
+      # --- Red ---
+      HOST: ${HOST:?Pon HOST en .env}
+      PORT: ${PORT:?Pon PORT en .env}
+      
+      # --- Datos ---
+      DATABASE_URL: ${DATABASE_URL:?Pon DATABASE_URL en .env}
+      REDIS_URL: ${REDIS_URL:?Pon REDIS_URL en .env}
+      
+      # --- Seguridad ---
+      # Debe coincidir con JWT_SECRET del backend.
+      JWT_SECRET: ${JWT_SECRET:?Pon JWT_SECRET en .env}
+      
+      # --- S3 (Hetzner Object Storage) ---
+      S3_ENDPOINT: ${S3_ENDPOINT:?Pon S3_ENDPOINT en .env}
+      S3_BUCKET: ${S3_BUCKET:?Pon S3_BUCKET en .env}
+      S3_REGION: ${S3_REGION:?Pon S3_REGION en .env}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Pon S3_ACCESS_KEY en .env}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Pon S3_SECRET_KEY en .env}
+      
+      # --- CDN ---
+      # Bunny.net CDN URL para generar URLs públicas.
+      BUNNY_CDN_URL: ${BUNNY_CDN_URL:?Pon BUNNY_CDN_URL en .env}
+      
+      # --- Límites de tráfico ---
+      TRAFFIC_MAX_DAILY_BYTES: ${TRAFFIC_MAX_DAILY_BYTES:?Pon TRAFFIC_MAX_DAILY_BYTES en .env}
+      TRAFFIC_MAX_MONTHLY_BYTES: ${TRAFFIC_MAX_MONTHLY_BYTES:?Pon TRAFFIC_MAX_MONTHLY_BYTES en .env}
+      TRAFFIC_MAX_DAILY_DOWNLOADS: ${TRAFFIC_MAX_DAILY_DOWNLOADS:?Pon TRAFFIC_MAX_DAILY_DOWNLOADS en .env}
+      TRAFFIC_MAX_USER_DAILY_BYTES: ${TRAFFIC_MAX_USER_DAILY_BYTES:?Pon TRAFFIC_MAX_USER_DAILY_BYTES en .env}
+      TRAFFIC_MAX_USER_DAILY_DOWNLOADS: ${TRAFFIC_MAX_USER_DAILY_DOWNLOADS:?Pon TRAFFIC_MAX_USER_DAILY_DOWNLOADS en .env}
+      TRAFFIC_MAX_REQUESTS_PER_HOUR: ${TRAFFIC_MAX_REQUESTS_PER_HOUR:?Pon TRAFFIC_MAX_REQUESTS_PER_HOUR en .env}
+      
+      # --- Video processing ---
+      VIDEO_PROCESSING_ENABLED: ${VIDEO_PROCESSING_ENABLED:?Pon VIDEO_PROCESSING_ENABLED en .env (true o false)}
+      VIDEO_MAX_UPLOAD_SIZE: ${VIDEO_MAX_UPLOAD_SIZE:?Pon VIDEO_MAX_UPLOAD_SIZE en .env}
+      VIDEO_QUALITIES: ${VIDEO_QUALITIES:?Pon VIDEO_QUALITIES en .env}
+      
+      # --- Logs ---
+      RUST_LOG: ${RUST_LOG:?Pon RUST_LOG en .env}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/3004'"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/${PORT:-3004}'"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 5s
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true

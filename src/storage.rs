@@ -11,6 +11,7 @@ use uuid::Uuid;
 pub struct S3Client {
     client: Client,
     bucket: String,
+    endpoint: String,
     bunny_cdn_url: String,
 }
 
@@ -38,6 +39,7 @@ impl S3Client {
         Ok(Self {
             client,
             bucket: bucket.to_string(),
+            endpoint: endpoint.to_string(),
             bunny_cdn_url: std::env::var("BUNNY_CDN_URL")
                 .unwrap_or_else(|_| "https://clubify-media.b-cdn.net".to_string()),
         })
@@ -57,7 +59,7 @@ impl S3Client {
         data: Bytes,
         content_type: &str,
     ) -> Result<()> {
-        let body = ByteStream::from(data);
+        let body = ByteStream::from(data.clone());
 
         self.client
             .put_object()
@@ -67,7 +69,18 @@ impl S3Client {
             .content_type(content_type)
             .send()
             .await
-            .context("Failed to upload to S3")?;
+            .map_err(|e| {
+                tracing::error!(
+                    bucket = %self.bucket,
+                    key = %key,
+                    size = data.len(),
+                    content_type = %content_type,
+                    endpoint = %self.endpoint,
+                    "S3 upload failed: {:?}",
+                    e
+                );
+                anyhow::anyhow!("Failed to upload to S3: {}", e)
+            })?;
 
         Ok(())
     }

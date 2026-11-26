@@ -1,8 +1,7 @@
 use crate::config::TrafficLimits;
 use crate::db::Database;
-use crate::redis::RedisClient;
+use crate::redis::{today_utc, RedisClient};
 use anyhow::Result;
-use chrono::{Datelike, NaiveDate, Utc};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -58,7 +57,7 @@ impl TrafficTracker {
 
     // Check if we can serve a request
     pub async fn check_limits(&self, user_id: Option<Uuid>) -> Result<LimitStatus> {
-        let daily_usage = self.redis.get_daily_usage(Utc::now().date_naive()).await?;
+        let daily_usage = self.redis.get_daily_usage(today_utc()).await?;
         let monthly_usage = self.redis.get_monthly_usage().await?;
         let user_daily_usage = if let Some(uid) = user_id {
             Some(self.redis.get_user_daily_usage(uid).await?)
@@ -102,8 +101,8 @@ impl TrafficTracker {
         }
 
         // Update PostgreSQL (persistent)
-        let today = Utc::now().date_naive();
-        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+        let today = today_utc();
+        let month_start = today.first_of_month();
 
         self.db.increment_daily_traffic(today, "bytes", bytes as i64).await?;
         self.db.increment_daily_traffic(today, "downloads", 1).await?;
@@ -160,8 +159,8 @@ impl TrafficTracker {
 
     // Get traffic statistics
     pub async fn get_stats(&self) -> Result<TrafficStats> {
-        let today = Utc::now().date_naive();
-        let month_start = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap();
+        let today = today_utc();
+        let month_start = today.first_of_month();
 
         let daily = self.db.get_daily_stats(today).await?;
         let monthly = self.db.get_monthly_stats(month_start).await?;

@@ -1,0 +1,7 @@
+# https://rustsec.github.io/cargo-audit/
+[advisories]
+ignore = [
+    # libsqlite3-sys viene de sqlx-sqlite, un driver opcional que nunca se
+    # compila: este crate solo activa la feature "postgres" de sqlx.
+    "RUSTSEC-2026-0459",
+]

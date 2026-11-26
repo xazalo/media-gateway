@@ -1,7 +1,17 @@
 use anyhow::Result;
-use chrono::{Datelike, NaiveDate, Timelike, Utc};
+use jiff::{civil::Date, tz::TimeZone, Timestamp};
 use redis::AsyncCommands;
 use uuid::Uuid;
+
+// Current calendar date in UTC. Single source of truth for traffic key names
+// (jiff's `Date` `Display` is ISO `%Y-%m-%d`, matching the pre-jiff keys).
+pub(crate) fn today_utc() -> Date {
+    Timestamp::now().to_zoned_datetime(TimeZone::UTC).date()
+}
+
+fn now_utc() -> jiff::ZonedDateTime {
+    Timestamp::now().to_zoned_datetime(TimeZone::UTC)
+}
 
 #[derive(Debug, Clone)]
 pub struct RedisClient {
@@ -40,9 +50,9 @@ impl RedisClient {
     }
 
     // Get current usage from Redis (fast cache)
-    pub async fn get_daily_usage(&self, date: NaiveDate) -> Result<DailyUsage> {
+    pub async fn get_daily_usage(&self, date: Date) -> Result<DailyUsage> {
         let mut conn = self.get_connection().await?;
-        let key_prefix = format!("traffic:daily:{}", date.format("%Y-%m-%d"));
+        let key_prefix = format!("traffic:daily:{date}");
 
         let bytes: u64 = conn.get(format!("{}:bytes", key_prefix)).await.unwrap_or(0);
         let downloads: u64 = conn.get(format!("{}:downloads", key_prefix)).await.unwrap_or(0);
@@ -58,8 +68,8 @@ impl RedisClient {
     // Increment daily usage in Redis
     pub async fn increment_daily_usage(&self, bytes: u64) -> Result<()> {
         let mut conn = self.get_connection().await?;
-        let date = Utc::now().date_naive();
-        let key_prefix = format!("traffic:daily:{}", date.format("%Y-%m-%d"));
+        let date = today_utc();
+        let key_prefix = format!("traffic:daily:{date}");
 
         // Set TTL to end of day (24h from now, will be cleaned up)
         let ttl = 86400 * 2; // 2 days to be safe
@@ -81,8 +91,8 @@ impl RedisClient {
     // Get user daily usage
     pub async fn get_user_daily_usage(&self, user_id: Uuid) -> Result<UserDailyUsage> {
         let mut conn = self.get_connection().await?;
-        let date = Utc::now().date_naive();
-        let key_prefix = format!("traffic:user:{}:{}", user_id, date.format("%Y-%m-%d"));
+        let date = today_utc();
+        let key_prefix = format!("traffic:user:{user_id}:{date}");
 
         let bytes: u64 = conn.get(format!("{}:bytes", key_prefix)).await.unwrap_or(0);
         let downloads: u64 = conn.get(format!("{}:downloads", key_prefix)).await.unwrap_or(0);
@@ -93,8 +103,8 @@ impl RedisClient {
     // Increment user daily usage
     pub async fn increment_user_daily_usage(&self, user_id: Uuid, bytes: u64) -> Result<()> {
         let mut conn = self.get_connection().await?;
-        let date = Utc::now().date_naive();
-        let key_prefix = format!("traffic:user:{}:{}", user_id, date.format("%Y-%m-%d"));
+        let date = today_utc();
+        let key_prefix = format!("traffic:user:{user_id}:{date}");
 
         let ttl = 86400 * 2;
 
@@ -113,7 +123,7 @@ impl RedisClient {
     // Get monthly usage
     pub async fn get_monthly_usage(&self) -> Result<MonthlyUsage> {
         let mut conn = self.get_connection().await?;
-        let now = Utc::now();
+        let now = now_utc();
         let key_prefix = format!("traffic:monthly:{}-{:02}", now.year(), now.month());
 
         let bytes: u64 = conn.get(format!("{}:bytes", key_prefix)).await.unwrap_or(0);
@@ -130,7 +140,7 @@ impl RedisClient {
     // Increment monthly usage
     pub async fn increment_monthly_usage(&self, bytes: u64) -> Result<()> {
         let mut conn = self.get_connection().await?;
-        let now = Utc::now();
+        let now = now_utc();
         let key_prefix = format!("traffic:monthly:{}-{:02}", now.year(), now.month());
 
         let ttl = 86400 * 32; // ~1 month
@@ -151,7 +161,7 @@ impl RedisClient {
 
     // Rate limit per IP
     pub async fn check_ip_rate_limit(&self, ip: &str, max_per_hour: u32) -> Result<bool> {
-        let now = Utc::now();
+        let now = now_utc();
         let key = format!(
             "ratelimit:{}:{}-{:02}-{:02}-{:02}",
             ip,
@@ -169,6 +179,40 @@ pub struct DailyUsage {
     pub bytes: u64,
     pub downloads: u64,
     pub requests: u64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The jiff migration must not change any Redis key: `Date`'s Display is
+    // depended on to render exactly `%Y-%m-%d`, and month/day/hour must stay
+    // zero-padded numbers (not crate enum names).
+    #[test]
+    fn traffic_keys_keep_their_format() {
+        let d = Date::new(1988, 8, 2).unwrap();
+        assert_eq!(format!("traffic:daily:{d}"), "traffic:daily:1988-08-02");
+        assert_eq!(format!("traffic:user:u42:{d}"), "traffic:user:u42:1988-08-02");
+    }
+
+    #[test]
+    fn month_and_rate_limit_keys_zero_pad() {
+        let z = Timestamp::from_second(0).unwrap().to_zoned_datetime(TimeZone::UTC);
+        assert_eq!(
+            format!("traffic:monthly:{}-{:02}", z.year(), z.month()),
+            "traffic:monthly:1970-01"
+        );
+        assert_eq!(
+            format!(
+                "ratelimit:1.2.3.4:{}-{:02}-{:02}-{:02}",
+                z.year(),
+                z.month(),
+                z.day(),
+                z.hour()
+            ),
+            "ratelimit:1.2.3.4:1970-01-01-00"
+        );
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]

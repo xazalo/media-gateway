@@ -47,7 +47,7 @@ impl S3Client {
 
     // Generate object key: uploads/{timestamp}/{uuid}-{filename}
     pub fn generate_key(&self, filename: &str) -> String {
-        let timestamp = chrono::Utc::now().timestamp();
+        let timestamp = jiff::Timestamp::now().as_second();
         let uuid = Uuid::new_v4();
         format!("uploads/{}/{}-{}", timestamp, uuid, filename)
     }

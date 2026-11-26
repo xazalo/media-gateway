@@ -7,6 +7,7 @@ pub struct Config {
     pub database_url: String,
     pub redis_url: String,
     pub jwt_secret: String,
+    pub media_gateway_api_key: String,
     pub s3: S3Config,
     pub bunny_cdn_url: String,
     pub traffic: TrafficLimits,
@@ -65,6 +66,9 @@ impl Config {
             .context("REDIS_URL is required")?;
         let jwt_secret = std::env::var("JWT_SECRET")
             .context("JWT_SECRET is required (must match backend)")?;
+
+        let media_gateway_api_key = std::env::var("MEDIA_GATEWAY_API_KEY")
+            .context("MEDIA_GATEWAY_API_KEY is required (for internal backend communication)")?;
 
         let s3 = S3Config {
             endpoint: std::env::var("S3_ENDPOINT")
@@ -173,6 +177,7 @@ impl Config {
             database_url,
             redis_url,
             jwt_secret,
+            media_gateway_api_key,
             s3,
             bunny_cdn_url,
             traffic: TrafficLimits {

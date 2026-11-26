@@ -29,12 +29,20 @@ const VIDEO_TYPES: &[&str] = &[
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UploadResponse {
+    /// Relative URL to access media via backend proxy: /api/media/{id}
+    /// Note: The {id} will be assigned by the backend after creating the media record
     pub url: String,
-    pub cdn_url: String,
-    pub key: String,
+    /// Storage key in Object Storage (internal use only, never expose to frontend)
+    pub storage_key: String,
+    /// File size in bytes
     pub size: u64,
+    /// MIME type
     pub mime_type: String,
+    /// Original filename
     pub filename: String,
+    /// Media ID (UUID) - to be used after backend creates the media record
+    /// For now, this is a placeholder that the backend will replace
+    pub media_id: Option<String>,
 }
 
 pub async fn handle_upload(
@@ -95,14 +103,14 @@ pub async fn handle_upload(
         "File uploaded"
     );
 
-    let cdn_url = state.s3.get_cdn_url(&key);
-
+    // Return storage_key for backend to create media record
+    // The backend will assign a media_id and return /api/media/{id} to the frontend
     Ok(Json(UploadResponse {
-        url: cdn_url.clone(),
-        cdn_url,
-        key,
+        url: String::new(), // Will be set by backend after creating media record
+        storage_key: key,
         size: data.len() as u64,
         mime_type: content_type,
         filename,
+        media_id: None, // Will be set by backend
     }))
 }

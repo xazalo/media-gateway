@@ -150,3 +150,23 @@ where
         })
     }
 }
+
+/// Internal API key authentication for backend-to-media-gateway communication.
+/// Used for endpoints that should only be accessible from the backend (not public).
+pub async fn internal_api_key_auth(
+    State(state): State<AppState>,
+    req: axum::extract::Request,
+    next: Next,
+) -> Result<Response, AuthError> {
+    let api_key = req
+        .headers()
+        .get("X-API-Key")
+        .and_then(|v| v.to_str().ok())
+        .ok_or(AuthError::MissingToken)?;
+
+    if api_key != state.config.media_gateway_api_key {
+        return Err(AuthError::InvalidToken);
+    }
+
+    Ok(next.run(req).await)
+}

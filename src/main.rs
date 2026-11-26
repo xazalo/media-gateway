@@ -74,10 +74,21 @@ async fn main() -> Result<()> {
             auth::optional_auth,
         ));
 
+    let internal_router = Router::new()
+        .route(
+            "/internal/media/*key",
+            get(routes::internal::handle_internal_download),
+        )
+        .layer(middleware::from_fn_with_state(
+            state.clone(),
+            auth::internal_api_key_auth,
+        ));
+
     let app = Router::new()
         .route("/health", get(health_check))
         .merge(upload_router)
         .merge(download_router)
+        .merge(internal_router)
         .route(
             // Idem axum 0.7. El wildcard debe cerrar el path, así que el
             // sufijo '/info' (inalcanzable con keys de varias barras) pasa a

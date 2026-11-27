@@ -5,6 +5,7 @@ fn test_config() -> Config {
     Config {
         host: "127.0.0.1".to_string(),
         port: 0,
+        media_gateway_api_key: "test-media-gateway-key".to_string(),
         database_url: "postgres://test:test@localhost/test".to_string(),
         redis_url: "redis://localhost:6379".to_string(),
         jwt_secret: "test-secret-key-for-testing".to_string(),
@@ -44,7 +45,7 @@ fn test_config_from_env() {
 #[test]
 fn test_s3_key_generation() {
     let config = test_config();
-    let key = format!("uploads/{}/test.jpg", chrono::Utc::now().timestamp());
+    let key = format!("uploads/{}/test.jpg", jiff::Timestamp::now().as_second());
     assert!(key.starts_with("uploads/"));
     assert!(key.ends_with("test.jpg"));
 }

@@ -1,5 +1,6 @@
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use jiff::civil::Date;
+use jiff_sqlx::Date as PgDate;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -32,7 +33,7 @@ impl Database {
     // Daily traffic counters
     pub async fn increment_daily_traffic(
         &self,
-        date: NaiveDate,
+        date: Date,
         metric_type: &str,
         amount: i64,
     ) -> Result<()> {
@@ -44,7 +45,7 @@ impl Database {
             DO UPDATE SET count = traffic_daily.count + $3, updated_at = NOW()
             "#,
         )
-        .bind(date)
+        .bind(PgDate::from(date))
         .bind(metric_type)
         .bind(amount)
         .execute(&self.pool)
@@ -55,7 +56,7 @@ impl Database {
     // Monthly traffic counters
     pub async fn increment_monthly_traffic(
         &self,
-        month: NaiveDate,
+        month: Date,
         metric_type: &str,
         amount: i64,
     ) -> Result<()> {
@@ -67,7 +68,7 @@ impl Database {
             DO UPDATE SET count = traffic_monthly.count + $3, updated_at = NOW()
             "#,
         )
-        .bind(month)
+        .bind(PgDate::from(month))
         .bind(metric_type)
         .bind(amount)
         .execute(&self.pool)
@@ -78,7 +79,7 @@ impl Database {
     // Per-user daily traffic counters
     pub async fn increment_user_daily_traffic(
         &self,
-        date: NaiveDate,
+        date: Date,
         user_id: Uuid,
         metric_type: &str,
         amount: i64,
@@ -91,7 +92,7 @@ impl Database {
             DO UPDATE SET count = traffic_user_daily.count + $4, updated_at = NOW()
             "#,
         )
-        .bind(date)
+        .bind(PgDate::from(date))
         .bind(user_id)
         .bind(metric_type)
         .bind(amount)
@@ -101,11 +102,11 @@ impl Database {
     }
 
     // Get daily traffic stats
-    pub async fn get_daily_stats(&self, date: NaiveDate) -> Result<DailyStats> {
-        let rows: Vec<(String, i64)> = sqlx::query_scalar(
+    pub async fn get_daily_stats(&self, date: Date) -> Result<DailyStats> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
             "SELECT metric_type, count FROM traffic_daily WHERE date = $1",
         )
-        .bind(date)
+        .bind(PgDate::from(date))
         .fetch_all(&self.pool)
         .await?;
 
@@ -122,11 +123,11 @@ impl Database {
     }
 
     // Get monthly traffic stats
-    pub async fn get_monthly_stats(&self, month: NaiveDate) -> Result<MonthlyStats> {
-        let rows: Vec<(String, i64)> = sqlx::query_scalar(
+    pub async fn get_monthly_stats(&self, month: Date) -> Result<MonthlyStats> {
+        let rows: Vec<(String, i64)> = sqlx::query_as(
             "SELECT metric_type, count FROM traffic_monthly WHERE month = $1",
         )
-        .bind(month)
+        .bind(PgDate::from(month))
         .fetch_all(&self.pool)
         .await?;
 
@@ -145,13 +146,13 @@ impl Database {
     // Get user daily stats
     pub async fn get_user_daily_stats(
         &self,
-        date: NaiveDate,
+        date: Date,
         user_id: Uuid,
     ) -> Result<UserDailyStats> {
-        let rows: Vec<(String, i64)> = sqlx::query_scalar(
+        let rows: Vec<(String, i64)> = sqlx::query_as(
             "SELECT metric_type, count FROM traffic_user_daily WHERE date = $1 AND user_id = $2",
         )
-        .bind(date)
+        .bind(PgDate::from(date))
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;

@@ -117,7 +117,11 @@ async fn main() -> Result<()> {
     tracing::info!("Listening on {}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // `into_make_service_with_connect_info` inyecta `ConnectInfo<SocketAddr>`
+    // en cada request; sin esto el middleware de rate-limit no ve la IP del
+    // cliente en acceso directo (solo funcionaba detrás de Traefik, que
+    // aporta `x-forwarded-for`).
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
     Ok(())
 }
